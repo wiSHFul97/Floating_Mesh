@@ -36,20 +36,17 @@ class MESH_OT_float_subdiv(bpy.types.Operator):
         prev_vert = origin
         current_vert = prev_vert.link_edges[0].other_vert(prev_vert)
         move_constant = (1 - 1/self.subdiv_lvl)
-        print(move_constant)
+
         if move_constant > 0:
             # slide existing verts
             move_percentage, last_vert, second_last_vert, line_vectors = slide_verts(len(b_wire.verts)-2,
                                                                     prev_vert, current_vert, move_constant, -2)
-            
             # last vert and additional verts:
-            # last_vert.select = True 
-            # second_last_vert.select = True
             move_percentage += move_constant
             additional_vert_count = math.ceil(move_percentage/(1-move_constant))
-            last_vert, second_last_vert = add_additional_verts(last_vert, second_last_vert, additional_vert_count, wire, b_wire)
+            second_last_vert, last_vert = add_additional_verts(last_vert, second_last_vert, additional_vert_count, wire, b_wire)
             bmesh.update_edit_mesh(wire.data)
-
+            
             # sliding additional verts into proper position
             slide_last_verts(additional_vert_count, second_last_vert, last_vert,
                                 move_constant, move_percentage, -1, line_vectors)        
@@ -58,9 +55,9 @@ class MESH_OT_float_subdiv(bpy.types.Operator):
             out_slide_verts(line_vectors, prev_vert, current_vert, move_constant)
 
         # revert selection
-        # bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.mesh.select_all(action='DESELECT')
         # origin.select = True
-        # bmesh.update_edit_mesh(wire.data)
+        bmesh.update_edit_mesh(wire.data)
         return {'FINISHED'}
 
 

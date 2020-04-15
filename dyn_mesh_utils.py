@@ -6,31 +6,31 @@ from mathutils import Vector
 def other_vertex(vert, edge_index):
     return vert.link_edges[edge_index].other_vert(vert)
 
-def get_edge_direction(from_vert, to_vert):
-    prev_vert = from_vert
-    for edge in from_vert.link_edges:
-        current_vert = edge.other_vert(from_vert)
-        while current_vert != None:
-            next_vert = get_next_wire_vert(prev_vert, current_vert)
-            prev_vert, current_vert = current_vert, next_vert
-            if current_vert == to_vert:
-                return edge
-    return None
+# def get_edge_direction(from_vert, to_vert):
+#     prev_vert = from_vert
+#     for edge in from_vert.link_edges:
+#         current_vert = edge.other_vert(from_vert)
+#         while current_vert != None:
+#             next_vert = get_next_wire_vert(prev_vert, current_vert)
+#             prev_vert, current_vert = current_vert, next_vert
+#             if current_vert == to_vert:
+#                 return edge
+#     return None
+
+# def generate_in_between_verts(from_vert, to_vert):
+#     # should be wire (for now)
+#     prev_vert = from_vert
+#     edge = get_edge_direction(from_vert, to_vert)
+#     current_vert = edge.other_vert(from_vert)
+#     while current_vert != to_vert:
+#         yield current_vert
+#         next_vert = get_next_wire_vert(prev_vert, current_vert)
+#         prev_vert, current_vert = current_vert, next_vert
 
 def generate_next_verts(prev_vert, current_vert, verts_count):
     for i in range(verts_count):
         next_vert = get_next_wire_vert(prev_vert, current_vert)
         yield current_vert, next_vert, i
-        prev_vert, current_vert = current_vert, next_vert
-
-def generate_in_between_verts(from_vert, to_vert):
-    # should be wire (for now)
-    prev_vert = from_vert
-    edge = get_edge_direction(from_vert, to_vert)
-    current_vert = edge.other_vert(from_vert)
-    while current_vert != to_vert:
-        yield current_vert
-        next_vert = get_next_wire_vert(prev_vert, current_vert)
         prev_vert, current_vert = current_vert, next_vert
 
 def add_additional_verts(last_vert, second_last_vert, additional_vert_count, wire, b_wire):
@@ -85,36 +85,27 @@ def slide_verts(verts_count, prev_vert, current_vert, move_constant, last_vec_in
 
 def slide_last_verts(verts_count, prev_vert, current_vert, move_constant, move_percentage, last_vec_ind, line_vectors):
     for current_vert, _, _ in generate_next_verts(prev_vert, current_vert, verts_count):
-        # next_vert = get_next_wire_vert(prev_vert, current_vert)
         slide_vert(current_vert, move_percentage, line_vectors, last_vec_ind)
         move_percentage -= (1 - move_constant)
-        # prev_vert, current_vert = current_vert, next_vert
 
     return move_percentage, current_vert, prev_vert, line_vectors
 
 def get_line_vectors(segment_count, prev_vert, current_vert):
     line_vector = [prev_vert.co - current_vert.co]
-    # for i in range(segment_count-1):
     for current_vert, next_vert, _ in generate_next_verts(prev_vert, current_vert, segment_count-1):
-        # next_vert = get_next_wire_vert(prev_vert, current_vert)
         line_vector.append(current_vert.co - next_vert.co)
-        # prev_vert, current_vert = current_vert, next_vert
     return line_vector
 
-def dissolve_last_verts(index, line_vectors, prev_vert, current_vert):
+def dissolve_last_verts(index, line_vectors, current_vert, next_vert):
     bpy.ops.mesh.select_all(action='DESELECT')
-    # for j in range(index, len(line_vectors)):
-    for current_vert, next_vert, _ in generate_next_verts(prev_vert, current_vert, len(line_vectors)-index):    
+    current_vert.select = True
+    for current_vert, next_vert, _ in generate_next_verts(current_vert, next_vert, len(line_vectors)-index-1):    
         current_vert.select = True
-        # next_vert = get_next_wire_vert(prev_vert, current_vert)
-        # prev_vert, current_vert = current_vert, next_vert
     bpy.ops.mesh.dissolve_mode(use_verts=True)
 
 def out_slide_verts(line_vectors, prev_vert, current_vert, move_constant):
     index = 0
-    for current_vert, next_vert, i in generate_next_verts(prev_vert, current_vert, len(line_vectors)-index):
-    # for i in range(len(line_vectors)-1):
-        # next_vert = get_next_wire_vert(prev_vert, current_vert)
+    for current_vert, next_vert, i in generate_next_verts(prev_vert, current_vert, len(line_vectors)-1):
         move_percentage = move_constant * (i + 1)
         index += 1
         try:
@@ -122,11 +113,9 @@ def out_slide_verts(line_vectors, prev_vert, current_vert, move_constant):
             index -= index_offset
         except:
             # dissolve verts till the end...
-            dissolve_last_verts(index, line_vectors, prev_vert, current_vert)
+            dissolve_last_verts(index, line_vectors, current_vert, next_vert)
             break
-        # prev_vert, current_vert = current_vert, next_vert
 
 
-# todo next: add_additional_verts
-# refactor to use generator
+# todo next: operate base on start and end vertex
 
