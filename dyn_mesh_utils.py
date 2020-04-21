@@ -2,6 +2,14 @@
 import bpy
 import bmesh
 from mathutils import Vector
+import math
+
+# def get_adj_slctd_vert(vert):
+# 	adj_slctd_verts = []
+# 	for edge in vert.link_edges:
+# 		if edge.other_vert(vert).select:
+# 			adj_slctd_verts += edge.other_vert(vert)
+# 	return adj_slctd_verts
 
 def other_vertex(vert, edge_index):
     return vert.link_edges[edge_index].other_vert(vert)
@@ -33,7 +41,7 @@ def generate_next_verts(prev_vert, current_vert, verts_count):
         yield current_vert, next_vert, i
         prev_vert, current_vert = current_vert, next_vert
 
-def add_additional_verts(last_vert, second_last_vert, additional_vert_count, wire, b_wire):
+def add_additional_verts(last_vert, second_last_vert, additional_vert_count, b_wire):
     # select last edge --> subdivide --> move additional verts to last vert
     bpy.ops.mesh.select_all(action='DESELECT')
     second_last_vert.link_edges[0].select_set(True) # todo why second_last? should be last
@@ -116,6 +124,51 @@ def out_slide_verts(line_vectors, prev_vert, current_vert, move_constant):
             dissolve_last_verts(index, line_vectors, current_vert, next_vert)
             break
 
-
+def subdivide_segment(move_constant, prev_vert, current_vert, verts_count, b_wire):
+	if move_constant > 0:
+		# slide existing verts
+		move_percentage, last_vert, second_last_vert, line_vectors = slide_verts(len(b_wire.verts)-2,
+																prev_vert, current_vert, move_constant, -2)
+		# last vert and additional verts:
+		move_percentage += move_constant
+		additional_vert_count = math.ceil(move_percentage/(1-move_constant))
+		second_last_vert, last_vert = add_additional_verts(last_vert, second_last_vert, additional_vert_count, b_wire)
+		# bmesh.update_edit_mesh(wire.data)
+		
+		# sliding additional verts into proper position
+		slide_last_verts(additional_vert_count, second_last_vert, last_vert,
+							move_constant, move_percentage, -1, line_vectors)        
+	else:
+		line_vectors = get_line_vectors(len(b_wire.verts)-1, prev_vert, current_vert)
+		out_slide_verts(line_vectors, prev_vert, current_vert, move_constant)
 # todo next: operate base on start and end vertex
 
+def calculate_subdiv_lvl(target_v_count, segment_v_count):
+	if target_v_count < segment_v_count:
+		rm_count = segment_v_count - target_v_count
+		return -(rm_count / (target_v_count - 1) + (.01 if rm_count == 1 else 0))
+	elif target_v_count > segment_v_count:
+		additional_count = target_v_count - segment_v_count
+		return (additional_count / (target_v_count - 1))
+	return 0
+
+def calculate_part_subdiv_lvl(start_index, end_index, target_v_count): # assumption: subdiv_lvl = 1
+	current_count = end_index - start_index + 1
+	if current_count < target_v_count:
+		additional_verts_count = target_v_count - current_count
+		return additional_verts_count / (end_index - start_index + additional_verts_count) 
+		# todo hodoodie (hesab kardane index haye jadid? taghrib az kodoom taraf?)
+	elif current_count > target_v_count:
+		rm_verts_count = current_count - target_v_count
+		return -(rm_verts_count/(end_index - start_index - rm_verts_count))
+	return 0
+
+def convert_index(current_const, current_index, target_const): # todo 1-exceptions? 2-validate wire vert count? 
+	return current_index + (target_const - current_const) * current_index / (1 - target_const)
+
+# next: tabdil (subdiv_lvl, index) ha be ham
+# etmame set segments
+# UX, save graph on disk? (node editor for graph edit?)
+# create dependency graph
+# create mesh (base on wire (extrude))
+# noe connection ha: 1-connect mishan (mesh jadid sakhte mishe) 2-nesbateshoon hefz mishe
